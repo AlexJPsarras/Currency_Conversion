@@ -1,0 +1,101 @@
+@ACL1000
+^LAYOUT   Transactions                       18 D.T,
+Amount_in_Local_Currency PRINT       1   7 2  
+Local_Currency ASCII       8   3    
+Amount_in_Base_Currency PRINT      11   8 2  
+^LOGFILE  Currency_Convert                    "" "Currency_Convert.LOG"
+[PARENT_FOLDER_ID] 0
+^BATCH    Exec_Parse_RSS_CurrExc             
+[PARENT_FOLDER_ID] 0
+COMMENT 
+**********************************************************************************
+* 
+* Script Name: Exec_Parse_RSS_CurrExc
+* 
+* Description: This ACL script converts currencies based on today's exchange rates
+* The EXECUTE command calls a Python program that parses an RSS feed to get the 
+* exchange rates. The Python program creates an ACL script than contains a 
+* computed field that converts to the desired currency
+*
+* Created By: Alex Psarras 
+* Created On: 02/06/2013
+*
+* version 1.0
+* 
+**********************************************************************************
+END
+
+SET SESSION 
+SET SAFETY OFF
+SET EXACT ON 
+SET FOLDER /Temp
+SET DATE "DD/MM/YYYY"
+SET OVERFLOW OFF
+SET SUPPRESSXML OFF
+SET PIC "-9,999,999.99"
+SET BEEP 1
+CLOSE PRI SEC 
+
+COM ** Create a windows folder
+EXECUTE 'cmd /c MD "C:\ACL_Download"'
+
+COM ** Set default currency to GBP
+v_to_currency = "GBP"
+
+COM ** Ask user for input
+ACCEPT "Select the table:" FIELDS "xf" to v_table
+OPEN "%v_table%"
+ACCEPT "Select the currency field:" FIELDS "C" TO v_f_currency "Select the amount in local currency field:" FIELDS "N" TO v_f_amount "Enter the 3 letter currency code to convert to:" TO v_to_currency
+
+COM ** Now get a unique list of values in the table
+SUMMARIZE ON %v_f_currency% TO "x_values" PRESORT
+
+OPEN x_values
+v_curr_tmp = BLANKS(10000)
+
+COM ** Create a CSV variable of the different currencies
+GROUP IF %v_f_currency% <> "%v_to_currency%"
+   v_curr_tmp = ALLTRIM(v_curr_tmp) + ALLTRIM(%v_f_currency%) + ","
+END
+
+COM ** Remove the final "," from the variable
+v_currencies = SUBSTRING(v_curr_tmp 1 LENGTH(ALLTRIM(v_curr_tmp))-1)
+
+COM ** Export to a text file ready for the Python program
+OPEN "%v_table%"
+EXPORT FIELDS "%v_table%" TO "C:\ACL_Download\CurrencyInputValues.TXT" FIRST 1
+EXPORT FIELDS "%v_f_amount%" TO "C:\ACL_Download\CurrencyInputValues.TXT" FIRST 1 APPEND
+EXPORT FIELDS "%v_f_currency%" TO "C:\ACL_Download\CurrencyInputValues.TXT" FIRST 1 APPEND
+EXPORT FIELDS "%v_to_currency%" TO "C:\ACL_Download\CurrencyInputValues.TXT" FIRST 1 APPEND
+EXPORT FIELDS "%v_currencies%" TO "C:\ACL_Download\CurrencyInputValues.TXT" FIRST 1 APPEND
+
+COM ** Run the Python RSS parser
+EXECUTE "python Currency_rssParser.py"
+
+COM ** Run the ACL script created by the Python program
+DO BATCH "C:\ACL_Download\CurrencyConverter.BAT"
+
+DEFINE VIEW Default_View OK
+com DEFINE COLUMN Default_View ALL
+
+DELETE "x_values.FIL" OK
+DELETE FOLDER /Temp OK
+
+SET SAFETY ON 
+^REPORT   Default_View                       Transactions                     D.T,
+[SKIP] 0
+[TLINES] 1
+[RLINES] 1
+[LINE] 1
+Amount_in_Local_Currency WIDTH 17 PICTURE ""
+[LINE] 1
+Local_Currency       WIDTH 10 PICTURE ""
+[LINE] 1
+Amount_in_Base_Currency WIDTH 17 PICTURE ""
+^FORMAT   Transactions                       Transactions                     "" "Transactions.fil" 0 ASCII 
+[PARENT_FOLDER_ID] 0
+[LASTVIEW] "Default_View"
+[RETRIEVE] 0
+[REFRESH] EXCEL "C:\Users\Alex\Documents\GitHub\alexpsarras.github.com\Execute Command Contest\Currency_Conversion\Transactions.fil" FROM "Transactions.xlsx" TABLE "Sheet1$" KEEPTITLE FIELD "Amount_in_Local_Currency" N WID 7 DEC 2 AS "" FIELD "Local_Currency" C WID 3 AS "" FIELD "Amount_in_Base_Currency" N WID 8 DEC 2 AS ""
+
+^OPEN F "Transactions"
