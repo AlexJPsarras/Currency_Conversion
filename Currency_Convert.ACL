@@ -73,10 +73,10 @@ COM ** Run the Python RSS parser
 EXECUTE "python Currency_rssParser.py"
 
 COM ** Run the ACL script created by the Python program
+SET FOLDER /Scripts
 DO BATCH "C:\ACL_Download\CurrencyConverter.BAT"
 
 DEFINE VIEW Default_View OK
-com DEFINE COLUMN Default_View ALL
 
 DELETE "x_values.FIL" OK
 DELETE FOLDER /Temp OK
@@ -87,11 +87,11 @@ SET SAFETY ON
 [TLINES] 1
 [RLINES] 1
 [LINE] 1
-Amount_in_Local_Currency WIDTH 17 PICTURE ""
+Amount_in_Local_Currency WIDTH 24 PICTURE ""
 [LINE] 1
-Local_Currency       WIDTH 10 PICTURE ""
+Local_Currency       WIDTH 14 PICTURE ""
 [LINE] 1
-Amount_in_Base_Currency WIDTH 17 PICTURE ""
+Amount_in_Base_Currency WIDTH 23 PICTURE ""
 ^FORMAT   Transactions                       Transactions                     "" "Transactions.fil" 0 ASCII 
 [PARENT_FOLDER_ID] 0
 [LASTVIEW] "Default_View"
